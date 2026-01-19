@@ -1,0 +1,103 @@
+{% extends 'base.html' %}
+
+{% block header %}
+{% if current_user.is_authenticated %}
+Admin Dashboard
+{% else %}
+Search Bills
+{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="dashboard-grid {{ 'single-column' if not current_user.is_authenticated else '' }}">
+
+    {% if current_user.is_authenticated %}
+    <!-- Admin View: Add Bill -->
+    <div class="card add-bill-card">
+        <h2><i class="fa-solid fa-plus-circle"></i> New Reading</h2>
+        <form action="{{ url_for('add_bill') }}" method="POST" class="bill-form">
+            <div class="form-group">
+                <label for="household_name">Household Name</label>
+                <input type="text" id="household_name" name="household_name" placeholder="e.g. Smith Residence"
+                    required>
+            </div>
+
+            <div class="form-group">
+                <label for="house_number">House Number</label>
+                <input type="text" id="house_number" name="house_number" placeholder="e.g. 123-A" required>
+            </div>
+
+            <div class="form-group">
+                <label for="units">Units Consumed (kWh)</label>
+                <input type="number" id="units" name="units" step="0.01" placeholder="0.00" required>
+            </div>
+
+            <div class="form-group">
+                <label for="rate">Rate per Unit ($)</label>
+                <input type="number" id="rate" name="rate" step="0.01" value="0.15" required>
+            </div>
+
+            <button type="submit" class="btn-primary">Calculate & Save Bill</button>
+        </form>
+    </div>
+
+    <!-- Admin View: Recent Activity -->
+    <div class="card recent-activity-card">
+        <div class="card-header">
+            <h2>Recent Activity</h2>
+            <a href="{{ url_for('history') }}" class="view-all">View All</a>
+        </div>
+
+        <div class="bill-list">
+            {% if recent_bills %}
+            {% for bill in recent_bills %}
+            <div class="bill-item">
+                <div class="bill-icon">
+                    <i class="fa-solid fa-file-invoice-dollar"></i>
+                </div>
+                <div class="bill-details">
+                    <h3>{{ bill.household_name }}</h3>
+                    <span class="date">{{ bill.date.strftime('%Y-%m-%d %H:%M') }}</span>
+                </div>
+                <div class="bill-amount">
+                    ${{ bill.total_amount }}
+                </div>
+                <div class="bill-actions" style="margin-left: 1rem; display: flex; gap: 0.5rem;">
+                    <a href="{{ url_for('edit_bill', bill_id=bill._id) }}" class="btn-sm btn-edit" title="Edit">
+                        <i class="fa-solid fa-pen"></i>
+                    </a>
+                    <form action="{{ url_for('delete_bill', bill_id=bill._id) }}" method="POST" style="display: inline;"
+                        onsubmit="return confirm('Are you sure you want to delete this bill?');">
+                        <button type="submit" class="btn-sm btn-delete" title="Delete">
+                            <i class="fa-solid fa-trash"></i>
+                        </button>
+                    </form>
+                </div>
+            </div>
+            {% endfor %}
+            {% else %}
+            <div class="empty-state">
+                <p>No bills recorded yet.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    {% else %}
+    <!-- Guest View: Search -->
+    <div class="card search-card" style="max-width: 600px; margin: 0 auto; text-align: center;">
+        <h2><i class="fa-solid fa-search"></i> Find Your Bill</h2>
+        <p style="margin-bottom: 2rem; color: var(--text-muted);">Enter your house number to view your electricity bill
+            history.</p>
+
+        <form action="{{ url_for('search') }}" method="POST" class="bill-form">
+            <div class="form-group">
+                <input type="text" id="house_number" name="house_number" placeholder="Enter House Number (e.g. 123-A)"
+                    required style="font-size: 1.2rem; text-align: center;">
+            </div>
+            <button type="submit" class="btn-primary" style="font-size: 1.1rem;">Search Bills</button>
+        </form>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
