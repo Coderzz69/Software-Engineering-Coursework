@@ -13,32 +13,73 @@ Search Bills
 
     {% if current_user.is_authenticated %}
     <!-- Admin View: Add Bill -->
+    <!-- Admin View: Add Bill / Household -->
     <div class="card add-bill-card">
-        <h2><i class="fa-solid fa-plus-circle"></i> New Reading</h2>
-        <form action="{{ url_for('add_bill') }}" method="POST" class="bill-form">
-            <div class="form-group">
-                <label for="household_name">Household Name</label>
-                <input type="text" id="household_name" name="household_name" placeholder="e.g. Smith Residence"
-                    required>
-            </div>
+        <div class="tabs">
+            <button id="tab-btn-AddBill" class="tab-button active" onclick="openTab(this, 'AddBill')">Add Bill</button>
+            <button id="tab-btn-AddHousehold" class="tab-button" onclick="openTab(this, 'AddHousehold')">Add
+                Household</button>
+        </div>
 
-            <div class="form-group">
-                <label for="house_number">House Number</label>
-                <input type="text" id="house_number" name="house_number" placeholder="e.g. 123-A" required>
-            </div>
+        <!-- Add Bill Form -->
+        <div id="AddBill" class="tab-content" style="display: block;">
+            <h2><i class="fa-solid fa-plus-circle"></i> New Reading</h2>
+            <form action="{{ url_for('add_bill') }}" method="POST" class="bill-form">
+                <div class="form-group">
+                    <label for="household_id">Select Household</label>
+                    {% if households %}
+                    <select id="household_id" name="household_id" required
+                        style="width: 100%; padding: 12px; background: rgba(15, 23, 42, 0.5); border: 1px solid var(--border-color); border-radius: 10px; color: var(--text-color);">
+                        <option value="" disabled selected>Choose a household...</option>
+                        {% for household in households %}
+                        <option value="{{ household._id }}">{{ household.household_name }} ({{ household.house_number
+                            }})</option>
+                        {% endfor %}
+                    </select>
+                    {% else %}
+                    <div
+                        style="padding: 1rem; background: rgba(255,255,255,0.05); border-radius: 10px; text-align: center;">
+                        <p style="color: var(--text-muted); margin-bottom: 0.5rem;">No households found.</p>
+                        <button type="button" class="btn-secondary"
+                            onclick="document.getElementById('tab-btn-AddHousehold').click();"
+                            style="background: transparent; border: 1px solid var(--primary-color); color: var(--primary-color); padding: 5px 10px; border-radius: 5px; cursor: pointer;">Add
+                            a Household First</button>
+                    </div>
+                    {% endif %}
+                </div>
 
-            <div class="form-group">
-                <label for="units">Units Consumed (kWh)</label>
-                <input type="number" id="units" name="units" step="0.01" placeholder="0.00" required>
-            </div>
+                <div class="form-group">
+                    <label for="units">Units Consumed (kWh)</label>
+                    <input type="number" id="units" name="units" step="0.01" placeholder="0.00" required>
+                </div>
 
-            <div class="form-group">
-                <label for="rate">Rate per Unit ($)</label>
-                <input type="number" id="rate" name="rate" step="0.01" value="0.15" required>
-            </div>
+                <div class="form-group">
+                    <p style="font-size: 0.9rem; color: var(--text-muted);"><i class="fa-solid fa-info-circle"></i> Bill
+                        calculated based on TSSPDCL Domestic Tariff.</p>
+                </div>
 
-            <button type="submit" class="btn-primary">Calculate & Save Bill</button>
-        </form>
+                <button type="submit" class="btn-primary">Calculate & Save Bill</button>
+            </form>
+        </div>
+
+        <!-- Add Household Form -->
+        <div id="AddHousehold" class="tab-content" style="display: none;">
+            <h2><i class="fa-solid fa-house-user"></i> New Household</h2>
+            <form action="{{ url_for('add_household') }}" method="POST" class="bill-form">
+                <div class="form-group">
+                    <label for="new_household_name">Household Name</label>
+                    <input type="text" id="new_household_name" name="household_name" placeholder="e.g. Smith Residence"
+                        required>
+                </div>
+
+                <div class="form-group">
+                    <label for="new_house_number">House Number</label>
+                    <input type="text" id="new_house_number" name="house_number" placeholder="e.g. 123-A" required>
+                </div>
+
+                <button type="submit" class="btn-primary">Register Household</button>
+            </form>
+        </div>
     </div>
 
     <!-- Admin View: Recent Activity -->
@@ -60,15 +101,16 @@ Search Bills
                     <span class="date">{{ bill.date.strftime('%Y-%m-%d %H:%M') }}</span>
                 </div>
                 <div class="bill-amount">
-                    ${{ bill.total_amount }}
+                    ₹{{ bill.total_amount }}
                 </div>
                 <div class="bill-actions" style="margin-left: 1rem; display: flex; gap: 0.5rem;">
                     <a href="{{ url_for('edit_bill', bill_id=bill._id) }}" class="btn-sm btn-edit" title="Edit">
                         <i class="fa-solid fa-pen"></i>
                     </a>
-                    <form action="{{ url_for('delete_bill', bill_id=bill._id) }}" method="POST" style="display: inline;"
-                        onsubmit="return confirm('Are you sure you want to delete this bill?');">
-                        <button type="submit" class="btn-sm btn-delete" title="Delete">
+                    <form action="{{ url_for('delete_bill', bill_id=bill._id) }}" method="POST"
+                        style="display: inline;">
+                        <button type="submit" class="btn-sm btn-delete" title="Delete"
+                            onclick="return confirm('Are you sure you want to delete this bill?');">
                             <i class="fa-solid fa-trash"></i>
                         </button>
                     </form>
@@ -100,4 +142,33 @@ Search Bills
     </div>
     {% endif %}
 </div>
+<script>
+    function openTab(el, tabName) {
+        var i, tabcontent, tablinks;
+        tabcontent = document.getElementsByClassName("tab-content");
+        for (i = 0; i < tabcontent.length; i++) {
+            tabcontent[i].style.display = "none";
+        }
+        tablinks = document.getElementsByClassName("tab-button");
+        for (i = 0; i < tablinks.length; i++) {
+            tablinks[i].classList.remove("active");
+        }
+        document.getElementById(tabName).style.display = "block";
+        el.classList.add("active");
+    }
+
+    // Initialize Choices.js
+    document.addEventListener('DOMContentLoaded', function () {
+        const element = document.getElementById('household_id');
+        if (element) {
+            const choices = new Choices(element, {
+                searchEnabled: true,
+                itemSelectText: '',
+                placeholder: true,
+                placeholderValue: 'Choose a household...',
+                shouldSort: false,
+            });
+        }
+    });
+</script>
 {% endblock %}

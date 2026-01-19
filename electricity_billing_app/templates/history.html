@@ -18,7 +18,7 @@ Billing History
                     <th>Household</th>
                     <th>House No.</th>
                     <th>Units (kWh)</th>
-                    <th>Rate ($)</th>
+                    <th>Rate (₹)</th>
                     <th>Total Amount</th>
                     {% if current_user.is_authenticated %}
                     <th>Actions</th>
@@ -34,7 +34,7 @@ Billing History
                     <td>{{ bill.house_number if bill.house_number else '-' }}</td>
                     <td>{{ bill.units }}</td>
                     <td>{{ bill.rate }}</td>
-                    <td class="amount-cell">${{ bill.total_amount }}</td>
+                    <td class="amount-cell">₹{{ bill.total_amount }}</td>
                     {% if current_user.is_authenticated %}
                     <td>
                         <div style="display: flex; gap: 0.5rem;">
@@ -42,9 +42,9 @@ Billing History
                                 <i class="fa-solid fa-pen"></i>
                             </a>
                             <form action="{{ url_for('delete_bill', bill_id=bill._id) }}" method="POST"
-                                style="display: inline;"
-                                onsubmit="return confirm('Are you sure you want to delete this bill?');">
-                                <button type="submit" class="btn-sm btn-delete" title="Delete">
+                                style="display: inline;">
+                                <button type="submit" class="btn-sm btn-delete" title="Delete"
+                                    onclick="return confirm('Are you sure you want to delete this bill?');">
                                     <i class="fa-solid fa-trash"></i>
                                 </button>
                             </form>
@@ -53,6 +53,14 @@ Billing History
                     {% endif %}
                 </tr>
                 {% endfor %}
+                <!-- Total Row -->
+                <tr style="background: rgba(99, 102, 241, 0.1); font-weight: bold;">
+                    <td colspan="5" style="text-align: right; color: var(--text-color);">Grand Total:</td>
+                    <td class="amount-cell" style="font-size: 1.1em;">₹{{ grand_total }}</td>
+                    {% if current_user.is_authenticated %}
+                    <td></td>
+                    {% endif %}
+                </tr>
                 {% else %}
                 <tr>
                     <td colspan="{{ '7' if current_user.is_authenticated else '6' }}" class="text-center"
