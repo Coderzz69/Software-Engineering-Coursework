@@ -1,0 +1,82 @@
+{% extends 'base.html' %}
+
+{% block header %}
+Secure Payment
+{% endblock %}
+
+{% block content %}
+<div class="card" style="max-width: 500px; margin: 2rem auto;">
+    <div class="card-header" style="text-align: center; margin-bottom: 2rem;">
+        <div style="font-size: 3rem; color: var(--primary-color); margin-bottom: 1rem;">
+            <i class="fa-solid fa-credit-card"></i>
+        </div>
+        <h2>Payment Gateway</h2>
+        <p style="color: var(--text-muted);">Completing payment for Invoice #{{ bill._id }}</p>
+    </div>
+
+    <div style="background: rgba(255, 255, 255, 0.05); padding: 1.5rem; border-radius: 10px; margin-bottom: 2rem;">
+        <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+            <span style="color: var(--text-muted);">Amount Due:</span>
+            <span style="font-size: 1.2rem; font-weight: bold;">₹{{ bill.total_amount }}</span>
+        </div>
+        <div style="display: flex; justify-content: space-between;">
+            <span style="color: var(--text-muted);">Consumer:</span>
+            <span>{{ bill.household_name }}</span>
+        </div>
+    </div>
+
+    <form action="{{ url_for('process_payment', bill_id=bill._id) }}" method="POST" class="bill-form" id="payment-form">
+        <div class="form-group">
+            <label for="card_number">Card Number</label>
+            <div style="position: relative;">
+                <input type="text" id="card_number" name="card_number" placeholder="0000 0000 0000 0000" required
+                    maxlength="19" style="padding-left: 3rem;">
+                <i class="fa-solid fa-credit-card"
+                    style="position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); color: var(--text-muted);"></i>
+            </div>
+        </div>
+
+        <div class="form-row" style="display: flex; gap: 1rem;">
+            <div class="form-group" style="flex: 1;">
+                <label for="expiry">Expiry Date</label>
+                <input type="text" id="expiry" name="expiry" placeholder="MM/YY" required maxlength="5">
+            </div>
+            <div class="form-group" style="flex: 1;">
+                <label for="cvv">CVV</label>
+                <input type="password" id="cvv" name="cvv" placeholder="123" required maxlength="3">
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label for="card_holder">Card Holder Name</label>
+            <input type="text" id="card_holder" name="card_holder" placeholder="Name on card" required>
+        </div>
+
+        <button type="submit" class="btn-primary" style="width: 100%; margin-top: 1rem;">
+            <i class="fa-solid fa-lock"></i> Pay ₹{{ bill.total_amount }}
+        </button>
+
+        <p style="text-align: center; margin-top: 1rem; font-size: 0.8rem; color: var(--text-muted);">
+            <i class="fa-solid fa-shield-halved"></i> This is a secure 256-bit encrypted transaction.
+        </p>
+    </form>
+</div>
+
+<script>
+    // Simple formatting for card number
+    document.getElementById('card_number').addEventListener('input', function (e) {
+        let value = e.target.value.replace(/\D/g, '');
+        value = value.replace(/(.{4})/g, '$1 ').trim();
+        e.target.value = value;
+    });
+
+    // Simple formatting for expiry
+    document.getElementById('expiry').addEventListener('input', function (e) {
+        let value = e.target.value.replace(/\D/g, '');
+        if (value.length >= 2) {
+            value = value.substring(0, 2) + '/' + value.substring(2, 4);
+        }
+        e.target.value = value;
+    });
+</script>
+{% endblock %}

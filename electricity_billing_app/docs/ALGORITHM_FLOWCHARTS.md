@@ -204,6 +204,28 @@ flowchart TD
 
 ---
 
+## 8. Payment Gateway Process
+
+```mermaid
+flowchart TD
+    Start([User Clicks 'Pay Now']) --> RenderPage["Render Payment Page<br/>(payment.html)"]
+    RenderPage --> InputDetails[/"Input: Card Details"/]
+    InputDetails --> Submit["Submit Payment"]
+    
+    Submit --> Process{Process<br/>Payment}
+    Process -->|Success| UpdateDB["Update Bill Status:<br/>'Paid'"]
+    UpdateDB --> RecordDate["Record Payment Date"]
+    RecordDate --> Redirect["Redirect to Invoice"]
+    Redirect --> ShowSuccess["Show 'Payment Successful'<br/>Message"]
+    
+    Process -->|Failure| ShowError["Show Error Message"]
+    ShowError --> RenderPage
+    
+    ShowSuccess --> End([End])
+```
+
+---
+
 ## Summary of Algorithms
 
 | Algorithm | Complexity | Key Operations |

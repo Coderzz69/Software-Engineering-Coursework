@@ -14,6 +14,7 @@
 3. [Output Handler Module](#output-handler-module)
 4. [Tariff Service Module](#tariff-service-module)
 5. [Bill Service Module](#bill-service-module)
+6. [Payment Processing](#payment-processing)
 
 ---
 
@@ -475,6 +476,26 @@ END
 - ✓ Previous pending bills
 - ✓ Due date (without fine)
 - ✓ Amount after due date (with ₹150 fine)
+
+---
+
+## Payment Processing
+
+### Route: `/process_payment/<bill_id>`
+
+**Module**: `app.py`
+
+**Purpose**: Handle fake payment submission and update bill status.
+
+**Input Parameters**:
+- `bill_id` (str): ID of the bill to pay
+- `card_details` (form data): Fake card info (not stored)
+
+**Logic**:
+1. Verify bill exists and is "Unpaid".
+2. Update bill status to "Paid".
+3. Record `payment_date` and `payment_method`.
+4. Redirect to bill view with success message.
 
 ---
 

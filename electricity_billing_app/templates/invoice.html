@@ -194,6 +194,31 @@
             .print-btn {
                 display: none;
             }
+
+            .print-btn {
+                display: none;
+            }
+        }
+
+        .status-stamp {
+            position: absolute;
+            top: 150px;
+            right: 50px;
+            font-size: 4rem;
+            font-weight: bold;
+            color: rgba(220, 38, 38, 0.2);
+            /* Red for unpaid */
+            border: 5px solid rgba(220, 38, 38, 0.2);
+            padding: 10px 20px;
+            transform: rotate(-15deg);
+            text-transform: uppercase;
+            pointer-events: none;
+        }
+
+        .status-stamp.paid {
+            color: rgba(22, 163, 74, 0.2);
+            /* Green for paid */
+            border-color: rgba(22, 163, 74, 0.2);
         }
     </style>
 </head>
@@ -215,6 +240,11 @@
                 <p>Invoice #: {{ bill._id }}</p>
                 <p>Date: {{ bill.date.strftime('%d-%b-%Y') }}</p>
                 <p>Due Date: {{ bill.due_date.strftime('%d-%b-%Y') if bill.due_date else 'Immediate' }}</p>
+            </div>
+
+            <!-- Status Stamp -->
+            <div class="status-stamp {{ 'paid' if bill.status == 'Paid' else '' }}">
+                {{ bill.status }}
             </div>
         </div>
 
@@ -300,12 +330,31 @@
             <p>This is a computer-generated invoice and does not require a physical signature.</p>
             <br>
             <p>Thank you for your business!</p>
+
+            {% if bill.status == 'Unpaid' %}
+            <div style="margin-top: 20px;">
+                <a href="{{ url_for('payment_page', bill_id=bill._id) }}" class="print-btn"
+                    style="background: #10b981; right: 220px; text-decoration: none;">
+                    <i class="fa-solid fa-credit-card"></i> Pay Now
+                </a>
+            </div>
+            {% endif %}
         </div>
     </div>
 
-    <button class="print-btn" onclick="window.print()">
+    <button class="print-btn" onclick="printAndRedirect()">
         <i class="fa-solid fa-print"></i> Print Invoice
     </button>
+
+    <script>
+        function printAndRedirect() {
+            window.print();
+            // Redirect to dashboard after a short delay to allow print dialog to open
+            setTimeout(function () {
+                window.location.href = "{{ url_for('index') }}";
+            }, 1000);
+        }
+    </script>
 
 </body>
 

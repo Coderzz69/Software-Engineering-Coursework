@@ -281,5 +281,56 @@ def view_bill(bill_id):
         flash(f"Error retrieving bill: {e}", "error")
         return redirect(url_for('history'))
 
+@app.route('/pay/<bill_id>')
+def payment_page(bill_id):
+    if bills_collection is None:
+        flash("Database connection error.", "error")
+        return redirect(url_for('index'))
+        
+    try:
+        bill = bills_collection.find_one({'_id': ObjectId(bill_id)})
+        if not bill:
+            flash("Invoice not found.", "error")
+            return redirect(url_for('index'))
+            
+        if bill.get('status') == 'Paid':
+            flash("This bill is already paid.", "info")
+            return redirect(url_for('view_bill', bill_id=bill_id))
+            
+        return render_template('payment.html', bill=bill)
+    except Exception as e:
+        flash(f"Error loading payment page: {str(e)}", "error")
+        return redirect(url_for('index'))
+
+@app.route('/process_payment/<bill_id>', methods=['POST'])
+def process_payment(bill_id):
+    if bills_collection is None:
+        flash("Database connection error.", "error")
+        return redirect(url_for('index'))
+        
+    try:
+        # Simulate payment processing delay or validation if needed
+        # For now, just assume success
+        
+        result = bills_collection.update_one(
+            {'_id': ObjectId(bill_id)},
+            {'$set': {
+                'status': 'Paid',
+                'payment_date': datetime.now(),
+                'payment_method': 'Credit Card'
+            }}
+        )
+        
+        if result.modified_count > 0:
+            flash("Payment successful! Thank you.", "success")
+        else:
+            flash("Payment failed or bill already paid.", "error")
+            
+        return redirect(url_for('view_bill', bill_id=bill_id))
+        
+    except Exception as e:
+        flash(f"Error processing payment: {str(e)}", "error")
+        return redirect(url_for('view_bill', bill_id=bill_id))
+
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
