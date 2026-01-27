@@ -4,7 +4,7 @@
 {% if is_search %}
 Search Results for "{{ search_query }}"
 {% else %}
-Billing History
+Invoice History
 {% endif %}
 {% endblock %}
 
@@ -15,47 +15,69 @@ Billing History
             <thead>
                 <tr>
                     <th>Date</th>
-                    <th>Household</th>
-                    <th>House No.</th>
-                    <th>Units (kWh)</th>
-                    <th>Rate (₹)</th>
-                    <th>Total Amount</th>
-                    {% if current_user.is_authenticated %}
+                    <th>Customer / Connection</th>
+                    <th>Meter No.</th>
+                    <th>Type</th>
+                    <th>Units</th>
+                    <th>Breakdown</th>
+                    <th>Total</th>
                     <th>Actions</th>
-                    {% endif %}
                 </tr>
             </thead>
             <tbody>
                 {% if bills %}
                 {% for bill in bills %}
                 <tr>
-                    <td>{{ bill.date.strftime('%Y-%m-%d %H:%M') }}</td>
-                    <td>{{ bill.household_name }}</td>
-                    <td>{{ bill.house_number if bill.house_number else '-' }}</td>
-                    <td>{{ bill.units }}</td>
-                    <td>{{ bill.rate }}</td>
-                    <td class="amount-cell">₹{{ bill.total_amount }}</td>
-                    {% if current_user.is_authenticated %}
+                    <td>{{ bill.date.strftime('%Y-%m-%d') }}</td>
                     <td>
-                        <div style="display: flex; gap: 0.5rem;">
-                            <a href="{{ url_for('edit_bill', bill_id=bill._id) }}" class="btn-sm btn-edit" title="Edit">
-                                <i class="fa-solid fa-pen"></i>
-                            </a>
-                            <form action="{{ url_for('delete_bill', bill_id=bill._id) }}" method="POST"
-                                style="display: inline;">
-                                <button type="submit" class="btn-sm btn-delete" title="Delete"
-                                    onclick="return confirm('Are you sure you want to delete this bill?');">
-                                    <i class="fa-solid fa-trash"></i>
-                                </button>
-                            </form>
+                        <div style="font-weight: bold;">{{ bill.household_name }}</div>
+                        {% if bill.service_number %}
+                        <div style="font-size: 0.85em; color: var(--primary-color); font-weight: 500;">{{
+                            bill.service_number }}</div>
+                        {% endif %}
+                        <div style="font-size: 0.8em; color: var(--text-muted);">{{ bill.phone }}</div>
+                        <div style="font-size: 0.8em; color: var(--text-muted); font-style: italic;">{{ bill.address }}
                         </div>
                     </td>
-                    {% endif %}
+                    <td>{{ bill.house_number }}</td>
+                    <td><span class="badge">{{ bill.connection_type }}</span></td>
+                    <td>{{ bill.units }} kWh</td>
+                    <td>
+                        <div style="font-size: 0.85em; line-height: 1.4;">
+                            <div>Base: ₹{{ bill.rate_breakdown.base_amount }}</div>
+                            {% if bill.rate_breakdown.fine_amount > 0 %}
+                            <div style="color: var(--danger-color);">Fine: +₹{{ bill.rate_breakdown.fine_amount }}</div>
+                            {% endif %}
+                            {% if bill.rate_breakdown.previous_dues > 0 %}
+                            <div style="color: var(--warning-color);">Dues: +₹{{ bill.rate_breakdown.previous_dues }}
+                            </div>
+                            {% endif %}
+                        </div>
+                    </td>
+                    <td class="amount-cell">₹{{ bill.total_amount }}</td>
+                    <td>
+                        <div style="display: flex; gap: 0.5rem; align-items: center;">
+                            <a href="{{ url_for('view_bill', bill_id=bill._id) }}" class="btn-sm"
+                                style="background: var(--primary-color); color: white;" title="View Invoice"
+                                target="_blank">
+                                <i class="fa-solid fa-file-invoice"></i>
+                            </a>
+                            {% if current_user.is_authenticated %}
+                            <form action="{{ url_for('delete_bill', bill_id=bill._id) }}" method="POST"
+                                style="display: inline;">
+                                <button type="submit" class="btn-sm btn-delete" title="Void"
+                                    onclick="return confirm('Are you sure you want to void this invoice?');">
+                                    <i class="fa-solid fa-ban"></i>
+                                </button>
+                            </form>
+                            {% endif %}
+                        </div>
+                    </td>
                 </tr>
                 {% endfor %}
                 <!-- Total Row -->
                 <tr style="background: rgba(99, 102, 241, 0.1); font-weight: bold;">
-                    <td colspan="5" style="text-align: right; color: var(--text-color);">Grand Total:</td>
+                    <td colspan="6" style="text-align: right; color: var(--text-color);">Grand Total:</td>
                     <td class="amount-cell" style="font-size: 1.1em;">₹{{ grand_total }}</td>
                     {% if current_user.is_authenticated %}
                     <td></td>
@@ -63,10 +85,10 @@ Billing History
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="{{ '7' if current_user.is_authenticated else '6' }}" class="text-center"
+                    <td colspan="{{ '8' if current_user.is_authenticated else '7' }}" class="text-center"
                         style="text-align: center; padding: 2rem;">
                         {% if is_search %}
-                        No bills found for house number "{{ search_query }}".
+                        No invoices found for "{{ search_query }}".
                         {% else %}
                         No records found.
                         {% endif %}
@@ -80,7 +102,7 @@ Billing History
     {% if is_search %}
     <div style="margin-top: 2rem; text-align: center;">
         <a href="{{ url_for('index') }}" class="btn-primary"
-            style="display: inline-block; width: auto; padding: 10px 20px; text-decoration: none;">Back to Search</a>
+            style="display: inline-block; width: auto; padding: 10px 20px; text-decoration: none;">Back to Dashboard</a>
     </div>
     {% endif %}
 </div>

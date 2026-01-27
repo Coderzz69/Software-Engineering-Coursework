@@ -5,6 +5,8 @@ from datetime import datetime
 import os
 from dotenv import load_dotenv
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
+from services.bill_service import BillService
+import re
 
 # Load environment variables if .env file exists
 load_dotenv()
@@ -41,12 +43,19 @@ if not mongo_uri:
 try:
     client = MongoClient(mongo_uri)
     db = client.get_default_database()
-    db = client.get_default_database()
-    bills_collection = db['electricity_billing']
+    
+    # Initialize Collections
     households_collection = db['households']
+    bills_collection = db['electricity_billing']
+    
+    # Initialize Services
+    bill_service = BillService(db)
+    
     print(f"Connected to MongoDB database: {db.name}")
 except Exception as e:
     print(f"Error connecting to MongoDB: {e}")
+    bill_service = None
+    households_collection = None
     bills_collection = None
 
 # ==================================================================================
@@ -94,8 +103,6 @@ def logout():
     flash('Logged out successfully.', 'success')
     return redirect(url_for('index'))
 
-    return redirect(url_for('index'))
-
 @app.route('/add_household', methods=['POST'])
 @login_required
 def add_household():
@@ -104,171 +111,114 @@ def add_household():
         return redirect(url_for('index'))
         
     try:
-        household_name = request.form.get('household_name')
-        house_number = request.form.get('house_number')
+        # Import validation functions
+        from modules.validation import validate_consumer_name, validate_phone_number, validate_consumer_number
         
-        # Check if exists (case insensitive)
+        household_name = request.form.get('household_name', '').strip()
+        # Sanitize name: remove numbers and convert to lowercase
+        household_name = re.sub(r'\d+', '', household_name).lower()
+        
+        house_number = request.form.get('house_number', '').strip()
+        phone = request.form.get('phone', '').strip()
+        address = request.form.get('address', '').strip()
+        connection_type = request.form.get('connection_type', 'Household')
+        
+        # Generate or get consumer number
+        consumer_number = request.form.get('service_number', '').strip()  # Form field name might still be service_number
+        if not consumer_number:
+            # Auto-generate consumer number
+            last_household = households_collection.find_one(sort=[("created_at", -1)])
+            if last_household and 'service_number' in last_household:
+                # Extract number from last consumer number
+                try:
+                    last_num = int(last_household['service_number'])
+                    new_num = last_num + 1
+                except ValueError:
+                    new_num = 1
+            else:
+                new_num = 1
+            consumer_number = f"{new_num:08d}"  # Format: 00000001
+        
+        # Validate all inputs
+        errors = []
+        
+        # Validate name
+        name_valid, name_error = validate_consumer_name(household_name)
+        if not name_valid:
+            errors.append(name_error)
+        
+        # Validate phone
+        phone_valid, phone_error = validate_phone_number(phone)
+        if not phone_valid:
+            errors.append(phone_error)
+        
+        # Validate consumer number (check uniqueness)
+        consumer_valid, consumer_error = validate_consumer_number(consumer_number, households_collection)
+        if not consumer_valid:
+            errors.append(consumer_error)
+        
+        # If any validation errors, display them and return
+        if errors:
+            for error in errors:
+                flash(error, "error")
+            return redirect(url_for('index'))
+        
+        # Check if house number already exists (case insensitive)
         existing_household = households_collection.find_one({
-            "house_number": {"$regex": f"^{house_number.strip()}$", "$options": "i"}
+            "house_number": {"$regex": f"^{house_number}$", "$options": "i"}
         })
         
         if existing_household:
-            flash(f"Household with number {house_number} already exists.", "error")
+            flash(f"Household with house number {house_number} already exists.", "error")
         else:
+            # Insert new household with all fields
             households_collection.insert_one({
                 "household_name": household_name,
+                "service_number": consumer_number,  # Keep field name as service_number in DB
+                "phone": phone,
                 "house_number": house_number,
+                "address": address,
+                "connection_type": connection_type,
+                "outstanding_balance": 0.0,
                 "created_at": datetime.now()
             })
-            flash("Household added successfully!", "success")
+            flash(f"Household added successfully! Consumer Number: {consumer_number}", "success")
     except Exception as e:
         flash(f"Error adding household: {e}", "error")
         
     return redirect(url_for('index'))
 
-# Helper function for TSSPDCL Bill Calculation
-def calculate_bill_amount(units):
-    """
-    Calculates the bill amount based on TSSPDCL Domestic Tariff (LT-I).
-    Slabs (approximate for demo):
-    0-50: 1.95
-    51-100: 3.10
-    101-200: 4.80
-    201-400: 5.10
-    401-800: 7.70
-    >800: 9.00
-    """
-    total = 0
-    remaining_units = units
-    
-    # Slab 1: 0-50
-    if remaining_units > 0:
-        slab_units = min(remaining_units, 50)
-        total += slab_units * 1.95
-        remaining_units -= slab_units
-        
-    # Slab 2: 51-100
-    if remaining_units > 0:
-        slab_units = min(remaining_units, 50)
-        total += slab_units * 3.10
-        remaining_units -= slab_units
-        
-    # Slab 3: 101-200
-    if remaining_units > 0:
-        slab_units = min(remaining_units, 100)
-        total += slab_units * 4.80
-        remaining_units -= slab_units
-        
-    # Slab 4: 201-400
-    if remaining_units > 0:
-        slab_units = min(remaining_units, 200)
-        total += slab_units * 5.10
-        remaining_units -= slab_units
-        
-    # Slab 5: 401-800
-    if remaining_units > 0:
-        slab_units = min(remaining_units, 400)
-        total += slab_units * 7.70
-        remaining_units -= slab_units
-        
-    # Slab 6: >800
-    if remaining_units > 0:
-        total += remaining_units * 9.00
-        
-    return round(total, 2)
-
 @app.route('/add', methods=['POST'])
 @login_required
 def add_bill():
-    if bills_collection is None:
+    if bill_service is None:
         flash("Database connection error. Cannot add bill.", "error")
         return redirect(url_for('index'))
 
     try:
         household_id = request.form.get('household_id')
         units_consumed = float(request.form.get('units'))
+        fine_amount = float(request.form.get('fine_amount', 0))
         
         if units_consumed < 0:
             flash("Units must be a positive number.", "error")
             return redirect(url_for('index'))
         
-        # Fetch household details
-        household = households_collection.find_one({"_id": ObjectId(household_id)})
-        if not household:
-            flash("Selected household not found.", "error")
-            return redirect(url_for('index'))
-            
-        total_amount = calculate_bill_amount(units_consumed)
-        
         bill_data = {
-            "household_id": ObjectId(household_id),
-            "household_name": household.get('household_name'),
-            "house_number": household.get('house_number'),
+            "household_id": household_id,
             "units": units_consumed,
-            "rate": "TSSPDCL Tariff", # Placeholder or effective rate
-            "total_amount": total_amount,
-            "date": datetime.now()
+            "fine_amount": fine_amount
         }
         
-        bills_collection.insert_one(bill_data)
-        flash(f"Bill added successfully! Amount: ₹{total_amount}", "success")
-    except ValueError:
-        flash("Invalid input. Please enter a number for units.", "error")
+        bill_service.create_bill(bill_data)
+        flash(f"Bill generated successfully!", "success")
+        
+    except ValueError as ve:
+        flash(f"Invalid input: {ve}", "error")
     except Exception as e:
         flash(f"An error occurred: {e}", "error")
         
     return redirect(url_for('index'))
-
-@app.route('/edit_bill/<bill_id>', methods=['GET', 'POST'])
-@login_required
-def edit_bill(bill_id):
-    if bills_collection is None:
-        flash("Database connection error.", "error")
-        return redirect(url_for('index'))
-
-    if request.method == 'POST':
-        try:
-            household_id = request.form.get('household_id')
-            units_consumed = float(request.form.get('units'))
-            
-            if units_consumed < 0:
-                flash("Units must be a positive number.", "error")
-                return redirect(url_for('edit_bill', bill_id=bill_id))
-            
-            # Fetch household details
-            household = households_collection.find_one({"_id": ObjectId(household_id)})
-            if not household:
-                flash("Selected household not found.", "error")
-                return redirect(url_for('edit_bill', bill_id=bill_id))
-            
-            total_amount = calculate_bill_amount(units_consumed)
-            
-            bills_collection.update_one(
-                {'_id': ObjectId(bill_id)},
-                {'$set': {
-                    "household_id": ObjectId(household_id),
-                    "household_name": household.get('household_name'),
-                    "house_number": household.get('house_number'),
-                    "units": units_consumed,
-                    "rate": "TSSPDCL Tariff",
-                    "total_amount": total_amount
-                }}
-            )
-            flash(f"Bill updated successfully! New Amount: ₹{total_amount}", "success")
-            return redirect(url_for('history'))
-        except ValueError:
-            flash("Invalid input.", "error")
-        except Exception as e:
-            flash(f"An error occurred: {e}", "error")
-            
-    bill = bills_collection.find_one({'_id': ObjectId(bill_id)})
-    
-    # Fetch households for dropdown
-    households = []
-    if households_collection is not None:
-        households = list(households_collection.find().sort("household_name", 1))
-        
-    return render_template('edit_bill.html', bill=bill, households=households)
 
 @app.route('/delete_bill/<bill_id>', methods=['POST'])
 @login_required
@@ -313,6 +263,23 @@ def history():
     grand_total = sum(bill.get('total_amount', 0) for bill in all_bills)
     
     return render_template('history.html', bills=all_bills, is_search=False, grand_total=grand_total)
+
+@app.route('/bill/<bill_id>')
+def view_bill(bill_id):
+    if bills_collection is None:
+        flash("Database connection error.", "error")
+        return redirect(url_for('history'))
+        
+    try:
+        bill = bills_collection.find_one({'_id': ObjectId(bill_id)})
+        if not bill:
+            flash("Bill not found.", "error")
+            return redirect(url_for('history'))
+            
+        return render_template('invoice.html', bill=bill)
+    except Exception as e:
+        flash(f"Error retrieving bill: {e}", "error")
+        return redirect(url_for('history'))
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)

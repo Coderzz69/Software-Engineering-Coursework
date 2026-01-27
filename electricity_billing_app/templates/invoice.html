@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Invoice #{{ bill._id }}</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --primary-color: #2563eb;
+            --text-dark: #1e293b;
+            --text-light: #64748b;
+            --border-color: #e2e8f0;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #f1f5f9;
+            margin: 0;
+            padding: 20px;
+            color: var(--text-dark);
+            -webkit-print-color-adjust: exact;
+        }
+
+        .invoice-container {
+            background: white;
+            max-width: 210mm;
+            /* A4 width */
+            min-height: 297mm;
+            /* A4 height */
+            margin: 0 auto;
+            padding: 40px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            position: relative;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 40px;
+            border-bottom: 2px solid var(--primary-color);
+            padding-bottom: 20px;
+        }
+
+        .company-info h1 {
+            color: var(--primary-color);
+            margin: 0;
+            font-size: 24px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .company-info p {
+            margin: 5px 0;
+            color: var(--text-light);
+            font-size: 14px;
+        }
+
+        .invoice-title {
+            text-align: right;
+        }
+
+        .invoice-title h2 {
+            margin: 0;
+            font-size: 32px;
+            color: var(--text-dark);
+        }
+
+        .invoice-title p {
+            margin: 5px 0;
+            color: var(--text-light);
+        }
+
+        .bill-info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 40px;
+            margin-bottom: 40px;
+        }
+
+        .info-box h3 {
+            font-size: 14px;
+            text-transform: uppercase;
+            color: var(--text-light);
+            margin-bottom: 10px;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 5px;
+        }
+
+        .info-box p {
+            margin: 5px 0;
+            font-weight: 500;
+        }
+
+        .table-container {
+            margin-bottom: 40px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th {
+            background: #f8fafc;
+            color: var(--text-light);
+            font-weight: 600;
+            text-align: left;
+            padding: 12px;
+            border-bottom: 2px solid var(--border-color);
+        }
+
+        td {
+            padding: 12px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .amount-col {
+            text-align: right;
+        }
+
+        .total-section {
+            display: flex;
+            justify-content: flex-end;
+            margin-top: 20px;
+        }
+
+        .total-box {
+            width: 300px;
+        }
+
+        .total-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .total-row.final {
+            border-bottom: none;
+            border-top: 2px solid var(--text-dark);
+            font-weight: bold;
+            font-size: 18px;
+            margin-top: 10px;
+            padding-top: 10px;
+        }
+
+        .footer {
+            margin-top: 60px;
+            text-align: center;
+            color: var(--text-light);
+            font-size: 12px;
+            border-top: 1px solid var(--border-color);
+            padding-top: 20px;
+        }
+
+        .print-btn {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 50px;
+            font-size: 16px;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+            transition: transform 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .print-btn:hover {
+            transform: translateY(-2px);
+        }
+
+        @media print {
+            body {
+                background: white;
+                padding: 0;
+            }
+
+            .invoice-container {
+                box-shadow: none;
+                margin: 0;
+                width: 100%;
+                max-width: none;
+            }
+
+            .print-btn {
+                display: none;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="invoice-container">
+        <!-- Header -->
+        <div class="header">
+            <div class="company-info">
+                <h1><i class="fa-solid fa-bolt"></i> ElectroBill Corp</h1>
+                <p>123 Power Grid Avenue</p>
+                <p>Tech City, TC 500081</p>
+                <p>GSTIN: 36AAAAA0000A1Z5</p>
+                <p>Support: help@electrobill.com</p>
+            </div>
+            <div class="invoice-title">
+                <h2>ELECTRICITY BILL</h2>
+                <p>Invoice #: {{ bill._id }}</p>
+                <p>Date: {{ bill.date.strftime('%d-%b-%Y') }}</p>
+                <p>Due Date: {{ bill.due_date.strftime('%d-%b-%Y') if bill.due_date else 'Immediate' }}</p>
+            </div>
+        </div>
+
+        <!-- Bill Info Grid -->
+        <div class="bill-info-grid">
+            <div class="info-box">
+                <h3>Bill To</h3>
+                <p style="font-size: 18px;">{{ bill.household_name }}</p>
+                <p>{{ bill.address }}</p>
+                <p>Phone: {{ bill.phone }}</p>
+            </div>
+            <div class="info-box">
+                <h3>Connection Details</h3>
+                <p>Consumer Number: <strong>{{ bill.service_number }}</strong></p>
+                <p>Meter Number: <strong>{{ bill.house_number }}</strong></p>
+                <p>Connection Type: <span
+                        style="background: #e2e8f0; padding: 2px 6px; border-radius: 4px; font-size: 0.9em;">{{
+                        bill.connection_type }}</span></p>
+                <p>Status: <span style="color: green;">Active</span></p>
+            </div>
+        </div>
+
+        <!-- Line Items -->
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Description</th>
+                        <th class="amount-col">Units / Qty</th>
+                        <th class="amount-col">Rate</th>
+                        <th class="amount-col">Amount (₹)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Energy Charges ({{ bill.connection_type }})</td>
+                        <td class="amount-col">{{ bill.units }} kWh</td>
+                        <td class="amount-col">-</td>
+                        <td class="amount-col">{{ "%.2f"|format(bill.rate_breakdown.base_amount) }}</td>
+                    </tr>
+                    {% if bill.rate_breakdown.fine_amount > 0 %}
+                    <tr>
+                        <td>Late Payment Surcharge / Fines</td>
+                        <td class="amount-col">-</td>
+                        <td class="amount-col">-</td>
+                        <td class="amount-col">{{ "%.2f"|format(bill.rate_breakdown.fine_amount) }}</td>
+                    </tr>
+                    {% endif %}
+                    {% if bill.rate_breakdown.previous_dues > 0 %}
+                    <tr>
+                        <td>Arrears / Previous Dues</td>
+                        <td class="amount-col">-</td>
+                        <td class="amount-col">-</td>
+                        <td class="amount-col">{{ "%.2f"|format(bill.rate_breakdown.previous_dues) }}</td>
+                    </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Totals -->
+        <div class="total-section">
+            <div class="total-box">
+                <div class="total-row">
+                    <span>Subtotal</span>
+                    <span>₹{{ "%.2f"|format(bill.total_amount) }}</span>
+                </div>
+                <div class="total-row">
+                    <span>Tax (0%)</span> <!-- Placeholder for tax if needed -->
+                    <span>₹0.00</span>
+                </div>
+                <div class="total-row final">
+                    <span>Total Payable</span>
+                    <span>₹{{ "%.2f"|format(bill.total_amount) }}</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            <p><strong>Terms & Conditions:</strong> Payment must be made by the due date to avoid disconnection. Late
+                payments attract interest @ 18% p.a.</p>
+            <p>This is a computer-generated invoice and does not require a physical signature.</p>
+            <br>
+            <p>Thank you for your business!</p>
+        </div>
+    </div>
+
+    <button class="print-btn" onclick="window.print()">
+        <i class="fa-solid fa-print"></i> Print Invoice
+    </button>
+
+</body>
+
+</html>

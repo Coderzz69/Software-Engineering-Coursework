@@ -2,7 +2,7 @@
 
 {% block header %}
 {% if current_user.is_authenticated %}
-Admin Dashboard
+CEO Dashboard
 {% else %}
 Search Bills
 {% endif %}
@@ -12,72 +12,114 @@ Search Bills
 <div class="dashboard-grid {{ 'single-column' if not current_user.is_authenticated else '' }}">
 
     {% if current_user.is_authenticated %}
-    <!-- Admin View: Add Bill -->
     <!-- Admin View: Add Bill / Household -->
     <div class="card add-bill-card">
         <div class="tabs">
-            <button id="tab-btn-AddBill" class="tab-button active" onclick="openTab(this, 'AddBill')">Add Bill</button>
-            <button id="tab-btn-AddHousehold" class="tab-button" onclick="openTab(this, 'AddHousehold')">Add
-                Household</button>
+            <button id="tab-btn-AddBill" class="tab-button active" onclick="openTab(this, 'AddBill')">Generate
+                Bill</button>
+            <button id="tab-btn-AddHousehold" class="tab-button" onclick="openTab(this, 'AddHousehold')">New
+                Connection</button>
         </div>
 
         <!-- Add Bill Form -->
         <div id="AddBill" class="tab-content" style="display: block;">
-            <h2><i class="fa-solid fa-plus-circle"></i> New Reading</h2>
+            <h2><i class="fa-solid fa-file-invoice-dollar"></i> Generate Invoice</h2>
             <form action="{{ url_for('add_bill') }}" method="POST" class="bill-form">
                 <div class="form-group">
-                    <label for="household_id">Select Household</label>
+                    <label for="household_id">Select Connection</label>
                     {% if households %}
                     <select id="household_id" name="household_id" required
                         style="width: 100%; padding: 12px; background: rgba(15, 23, 42, 0.5); border: 1px solid var(--border-color); border-radius: 10px; color: var(--text-color);">
-                        <option value="" disabled selected>Choose a household...</option>
+                        <option value="" disabled selected>Choose a connection...</option>
                         {% for household in households %}
-                        <option value="{{ household._id }}">{{ household.household_name }} ({{ household.house_number
-                            }})</option>
+                        <option value="{{ household._id }}">
+                            {{ household.household_name }}
+                            {% if household.service_number %}({{ household.service_number }}){% endif %}
+                            - {{ household.house_number }}
+                        </option>
                         {% endfor %}
                     </select>
                     {% else %}
                     <div
                         style="padding: 1rem; background: rgba(255,255,255,0.05); border-radius: 10px; text-align: center;">
-                        <p style="color: var(--text-muted); margin-bottom: 0.5rem;">No households found.</p>
+                        <p style="color: var(--text-muted); margin-bottom: 0.5rem;">No connections found.</p>
                         <button type="button" class="btn-secondary"
                             onclick="document.getElementById('tab-btn-AddHousehold').click();"
                             style="background: transparent; border: 1px solid var(--primary-color); color: var(--primary-color); padding: 5px 10px; border-radius: 5px; cursor: pointer;">Add
-                            a Household First</button>
+                            a Connection First</button>
                     </div>
                     {% endif %}
                 </div>
 
-                <div class="form-group">
-                    <label for="units">Units Consumed (kWh)</label>
-                    <input type="number" id="units" name="units" step="0.01" placeholder="0.00" required>
+                <div class="form-row" style="display: flex; gap: 1rem;">
+                    <div class="form-group" style="flex: 1;">
+                        <label for="units">Units (kWh)</label>
+                        <input type="number" id="units" name="units" step="0.01" placeholder="0.00" required>
+                    </div>
+                    <div class="form-group" style="flex: 1;">
+                        <label for="fine_amount">Fines / Penalties (₹)</label>
+                        <input type="number" id="fine_amount" name="fine_amount" step="0.01" placeholder="0.00"
+                            value="0">
+                    </div>
                 </div>
 
                 <div class="form-group">
-                    <p style="font-size: 0.9rem; color: var(--text-muted);"><i class="fa-solid fa-info-circle"></i> Bill
-                        calculated based on TSSPDCL Domestic Tariff.</p>
+                    <p style="font-size: 0.9rem; color: var(--text-muted);"><i class="fa-solid fa-info-circle"></i>
+                        Tariff will be applied automatically based on lab specifications.
+                    </p>
                 </div>
 
-                <button type="submit" class="btn-primary">Calculate & Save Bill</button>
+                <button type="submit" class="btn-primary">Generate Bill</button>
             </form>
         </div>
 
         <!-- Add Household Form -->
         <div id="AddHousehold" class="tab-content" style="display: none;">
-            <h2><i class="fa-solid fa-house-user"></i> New Household</h2>
+            <h2><i class="fa-solid fa-plug"></i> New Connection</h2>
             <form action="{{ url_for('add_household') }}" method="POST" class="bill-form">
-                <div class="form-group">
-                    <label for="new_household_name">Household Name</label>
-                    <input type="text" id="new_household_name" name="household_name" placeholder="e.g. Smith Residence"
-                        required>
+                <div class="form-row" style="display: flex; gap: 1rem;">
+                    <div class="form-group" style="flex: 1;">
+                        <label for="new_household_name">Customer Name</label>
+                        <input type="text" id="new_household_name" name="household_name" placeholder="e.g. John Doe"
+                            required>
+                    </div>
+                    <div class="form-group" style="flex: 1;">
+                        <label for="phone">Phone Number</label>
+                        <input type="tel" id="phone" name="phone" placeholder="10-digit number" required
+                            pattern="\d{10}" title="Please enter exactly 10 digits">
+                    </div>
+                </div>
+
+                <div class="form-row" style="display: flex; gap: 1rem;">
+                    <div class="form-group" style="flex: 1;">
+                        <label for="new_house_number">Meter / House Number</label>
+                        <input type="text" id="new_house_number" name="house_number" placeholder="e.g. MTR-12345"
+                            required>
+                    </div>
+                    <div class="form-group" style="flex: 1;">
+                        <label for="service_number">Consumer Number (Optional)</label>
+                        <input type="number" id="service_number" name="service_number" placeholder="e.g. 00000001">
+                        <small style="color: var(--text-muted); font-size: 0.8rem;">Leave blank to auto-generate</small>
+                    </div>
                 </div>
 
                 <div class="form-group">
-                    <label for="new_house_number">House Number</label>
-                    <input type="text" id="new_house_number" name="house_number" placeholder="e.g. 123-A" required>
+                    <label for="address">Billing Address</label>
+                    <textarea id="address" name="address" rows="2" placeholder="Full address..." required
+                        style="width: 100%; padding: 12px; background: rgba(15, 23, 42, 0.5); border: 1px solid var(--border-color); border-radius: 10px; color: var(--text-color);"></textarea>
                 </div>
 
-                <button type="submit" class="btn-primary">Register Household</button>
+                <div class="form-group">
+                    <label for="connection_type">Connection Type</label>
+                    <select id="connection_type" name="connection_type" required
+                        style="width: 100%; padding: 12px; background: rgba(15, 23, 42, 0.5); border: 1px solid var(--border-color); border-radius: 10px; color: var(--text-color);">
+                        <option value="Household">Household (Domestic)</option>
+                        <option value="Commercial">Commercial</option>
+                        <option value="Industrial">Industrial</option>
+                    </select>
+                </div>
+
+                <button type="submit" class="btn-primary">Register Connection</button>
             </form>
         </div>
     </div>
@@ -85,7 +127,7 @@ Search Bills
     <!-- Admin View: Recent Activity -->
     <div class="card recent-activity-card">
         <div class="card-header">
-            <h2>Recent Activity</h2>
+            <h2>Recent Invoices</h2>
             <a href="{{ url_for('history') }}" class="view-all">View All</a>
         </div>
 
@@ -93,25 +135,28 @@ Search Bills
             {% if recent_bills %}
             {% for bill in recent_bills %}
             <div class="bill-item">
-                <div class="bill-icon">
-                    <i class="fa-solid fa-file-invoice-dollar"></i>
+                <div class="bill-icon" style="background: rgba(99, 102, 241, 0.2); color: #818cf8;">
+                    <i class="fa-solid fa-file-invoice"></i>
                 </div>
                 <div class="bill-details">
                     <h3>{{ bill.household_name }}</h3>
-                    <span class="date">{{ bill.date.strftime('%Y-%m-%d %H:%M') }}</span>
+                    <span class="date">{{ bill.date.strftime('%Y-%m-%d') }} • <span class="badge"
+                            style="font-size: 0.7em; padding: 2px 6px;">{{ bill.connection_type }}</span></span>
                 </div>
                 <div class="bill-amount">
                     ₹{{ bill.total_amount }}
                 </div>
-                <div class="bill-actions" style="margin-left: 1rem; display: flex; gap: 0.5rem;">
-                    <a href="{{ url_for('edit_bill', bill_id=bill._id) }}" class="btn-sm btn-edit" title="Edit">
-                        <i class="fa-solid fa-pen"></i>
+                <div class="bill-actions" style="margin-left: 1rem; display: flex; gap: 0.5rem; align-items: center;">
+                    <a href="{{ url_for('view_bill', bill_id=bill._id) }}" class="btn-sm"
+                        style="background: var(--primary-color); color: white; padding: 5px 10px; border-radius: 5px;"
+                        title="View Invoice" target="_blank">
+                        <i class="fa-solid fa-file-invoice"></i>
                     </a>
                     <form action="{{ url_for('delete_bill', bill_id=bill._id) }}" method="POST"
                         style="display: inline;">
-                        <button type="submit" class="btn-sm btn-delete" title="Delete"
-                            onclick="return confirm('Are you sure you want to delete this bill?');">
-                            <i class="fa-solid fa-trash"></i>
+                        <button type="submit" class="btn-sm btn-delete" title="Void Invoice"
+                            onclick="return confirm('Are you sure you want to void this invoice?');">
+                            <i class="fa-solid fa-ban"></i>
                         </button>
                     </form>
                 </div>
@@ -119,7 +164,7 @@ Search Bills
             {% endfor %}
             {% else %}
             <div class="empty-state">
-                <p>No bills recorded yet.</p>
+                <p>No invoices generated yet.</p>
             </div>
             {% endif %}
         </div>
@@ -128,16 +173,16 @@ Search Bills
     {% else %}
     <!-- Guest View: Search -->
     <div class="card search-card" style="max-width: 600px; margin: 0 auto; text-align: center;">
-        <h2><i class="fa-solid fa-search"></i> Find Your Bill</h2>
-        <p style="margin-bottom: 2rem; color: var(--text-muted);">Enter your house number to view your electricity bill
+        <h2><i class="fa-solid fa-search"></i> Track Your Bill</h2>
+        <p style="margin-bottom: 2rem; color: var(--text-muted);">Enter your Meter or House Number to view billing
             history.</p>
 
         <form action="{{ url_for('search') }}" method="POST" class="bill-form">
             <div class="form-group">
-                <input type="text" id="house_number" name="house_number" placeholder="Enter House Number (e.g. 123-A)"
-                    required style="font-size: 1.2rem; text-align: center;">
+                <input type="text" id="house_number" name="house_number" placeholder="Enter Meter/House Number" required
+                    style="font-size: 1.2rem; text-align: center;">
             </div>
-            <button type="submit" class="btn-primary" style="font-size: 1.1rem;">Search Bills</button>
+            <button type="submit" class="btn-primary" style="font-size: 1.1rem;">Search</button>
         </form>
     </div>
     {% endif %}
@@ -165,7 +210,7 @@ Search Bills
                 searchEnabled: true,
                 itemSelectText: '',
                 placeholder: true,
-                placeholderValue: 'Choose a household...',
+                placeholderValue: 'Choose a connection...',
                 shouldSort: false,
             });
         }

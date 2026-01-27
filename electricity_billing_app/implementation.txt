@@ -1,0 +1,587 @@
+# Implementation Plan: Electricity Billing System Upgrade
+## Lab Tasks 1 & 2 - Software Engineering Coursework
+
+> [!IMPORTANT]
+> This implementation plan addresses **Task 1** (core bill generation with validation) and **Task 2** (modularization, quality enhancements, documentation, and testing).
+
+---
+
+## Overview
+
+The existing Flask-based electricity billing application needs to be upgraded to meet specific lab requirements. Key changes include:
+- **Correcting tariff rates** to match lab specifications
+- **Adding comprehensive input validation** (names, phone numbers, service numbers)
+- **Modularizing code** into separate Python modules (equivalent to header files)
+- **Creating detailed documentation** with module specifications
+- **Developing a complete test plan** with test cases
+- **Fixing bugs** and adding missing features
+
+---
+
+## User Review Required
+
+> [!WARNING]
+> **Breaking Changes**
+> - Tariff rate structure will change from current 6-tier system to lab-specified 4-tier system
+> - Database schema will be modified to add `service_number` and `phone` fields
+> - Previous bills calculation will be implemented differently
+
+> [!IMPORTANT]
+> **Missing Information**
+> - Should we migrate existing bill data to new tariff structure, or apply new rates only to future bills?
+> - Should service numbers be auto-generated or user-provided?
+> - Do you want to keep the current web-based UI, or would you prefer a command-line interface to match the lab requirements more closely?
+
+---
+
+## Proposed Changes
+
+### Component 1: Core Validation Module
+
+#### [NEW] [validation.py](file:///home/coderzz69/Desktop/SE_Projects/electricity_billing_app/modules/validation.py)
+
+**Purpose**: Centralized input validation functions
+
+**Functions to implement**:
+1. `validate_consumer_name(name: str) -> tuple[bool, str]`
+   - Check alphabets only, no numbers/special characters
+   - Return (is_valid, error_message)
+
+2. `validate_phone_number(phone: str) -> tuple[bool, str]`
+   - Check exactly 10 digits
+   - Return (is_valid, error_message)
+
+3. `validate_service_number(service_num: str, db_collection) -> tuple[bool, str]`
+   - Check uniqueness in database
+   - Return (is_valid, error_message)
+
+4. `validate_units(units: float) -> tuple[bool, str]`
+   - Check non-negative value
+   - Return (is_valid, error_message)
+
+---
+
+#### [NEW] [input_handler.py](file:///home/coderzz69/Desktop/SE_Projects/electricity_billing_app/modules/input_handler.py)
+
+**Purpose**: Handle user input with re-prompting on errors
+
+**Functions to implement**:
+1. `get_validated_input(prompt: str, validator_func, *validator_args) -> str`
+   - Generic function to get input with validation loop
+   - Re-prompt until valid input received
+
+2. `collect_consumer_details(db_collection) -> dict`
+   - Collect all consumer details (name, service number, phone, address)
+   - Apply validations with re-prompting
+   - Return dictionary of validated data
+
+---
+
+#### [NEW] [output_handler.py](file:///home/coderzz69/Desktop/SE_Projects/electricity_billing_app/modules/output_handler.py)
+
+**Purpose**: Format and display bill output
+
+**Functions to implement**:
+1. `format_bill_display(bill_data: dict) -> str`
+   - Format bill for console/web display
+   - Include all required fields from Task 1
+
+2. `generate_bill_pdf(bill_data: dict) -> bytes`
+   - Future enhancement for PDF generation
+
+---
+
+#### [NEW] [constants.py](file:///home/coderzz69/Desktop/SE_Projects/electricity_billing_app/modules/constants.py)
+
+**Purpose**: Store all configuration constants
+
+**Constants to define**:
+```python
+# Tariff Rates (Lab specification)
+TARIFF_SLABS = [
+    (50, 1.5),   # First 50 units
+    (50, 2.5),   # Next 50 units (51-100)
+    (50, 3.5),   # Next 50 units (101-150)
+    (float('inf'), 4.5)  # Above 150 units
+]
+
+# Charges
+MINIMUM_CHARGE = 25.0
+FINE_AMOUNT = 150.0
+DUE_DATE_DAYS = 15
+
+# Validation Rules
+NAME_PATTERN = r'^[A-Za-z\s]+$'
+PHONE_LENGTH = 10
+```
+
+---
+
+### Component 2: Updated Tariff Service
+
+#### [MODIFY] [tariff_service.py](file:///home/coderzz69/Desktop/SE_Projects/electricity_billing_app/services/tariff_service.py)
+
+**Changes**:
+1. Update `calculate_bill()` to use lab-specified rates from `constants.py`
+2. Implement minimum charge logic (₹25 when units = 0)
+3. Remove connection type differentiation (lab requires single household rate)
+4. Add detailed breakdown return value
+
+**New signature**:
+```python
+@staticmethod
+def calculate_bill(units: float) -> dict:
+    """
+    Returns: {
+        'base_amount': float,
+        'minimum_charge_applied': bool,
+        'breakdown': [{'units': float, 'rate': float, 'amount': float}]
+    }
+    """
+```
+
+---
+
+### Component 3: Enhanced Bill Service
+
+#### [MODIFY] [bill_service.py](file:///home/coderzz69/Desktop/SE_Projects/electricity_billing_app/services/bill_service.py)
+
+**Changes**:
+1. Add validation calls before creating bill
+2. Calculate previous pending bills from database
+3. Implement fine calculation based on due date
+4. Calculate proper due date (bill_date + 15 days)
+5. Add service number handling
+
+**Updated `create_bill()` method**:
+- Validate all inputs using validation module
+- Query previous unpaid bills for the same service number
+- Calculate total with previous dues
+- Generate bill with all required fields
+- Update household's outstanding balance
+
+---
+
+### Component 4: Database Schema Updates
+
+#### [MODIFY] [app.py](file:///home/coderzz69/Desktop/SE_Projects/electricity_billing_app/app.py) - Household Model
+
+**Add fields to household collection**:
+```python
+{
+    "service_number": str,  # Unique identifier (NEW)
+    "household_name": str,
+    "phone": str,  # Exactly 10 digits (NEW)
+    "house_number": str,
+    "address": str,
+    "connection_type": str,  # Keep for backward compatibility
+    "outstanding_balance": float,  # Track unpaid bills (NEW)
+    "created_at": datetime
+}
+```
+
+**Update routes**:
+1. `add_household()`: Add validation for new fields
+2. Update household registration form in `index.html`
+
+---
+
+### Component 5: Documentation Files
+
+#### [NEW] [MODULE_SPECIFICATIONS.md](file:///home/coderzz69/Desktop/SE_Projects/electricity_billing_app/docs/MODULE_SPECIFICATIONS.md)
+
+**Contents**: Detailed specification for each module/function
+- Module name
+- Purpose/Description
+- Input parameters (type, description, constraints)
+- Preconditions
+- Logic (algorithm/pseudocode)
+- Output/Return value
+- Postconditions
+- Example usage
+
+**Template for each function**:
+```markdown
+### Function: validate_consumer_name
+
+**Module**: validation.py
+
+**Purpose**: Validate that consumer name contains only alphabetic characters and spaces
+
+**Input Parameters**:
+- `name` (str): The consumer name to validate
+
+**Preconditions**:
+- name is a non-empty string
+
+**Logic**:
+1. Check if name is empty string
+2. Match against regex pattern ^[A-Za-z\s]+$
+3. If match fails, return (False, error message)
+4. If match succeeds, return (True, "")
+
+**Output**:
+- Tuple (bool, str): (is_valid, error_message)
+
+**Example**:
+```python
+is_valid, msg = validate_consumer_name("John Doe")  # Returns (True, "")
+is_valid, msg = validate_consumer_name("John123")   # Returns (False, "Name must contain only letters")
+```
+```
+
+---
+
+#### [NEW] [ALGORITHM_FLOWCHARTS.md](file:///home/coderzz69/Desktop/SE_Projects/electricity_billing_app/docs/ALGORITHM_FLOWCHARTS.md)
+
+**Contents**: Mermaid diagrams for key workflows
+1. Bill calculation algorithm flowchart
+2. Input validation flowchart
+3. Overall bill generation process flowchart
+
+**Example - Bill Calculation Flowchart**:
+```mermaid
+flowchart TD
+    Start([Start: Calculate Bill]) --> Input[/"Input: units_consumed"/]
+    Input --> CheckZero{units == 0?}
+    CheckZero -->|Yes| MinCharge[Apply minimum charge ₹25]
+    CheckZero -->|No| InitVars[Initialize: total = 0, remaining = units]
+    
+    InitVars --> Slab1{remaining > 0?}
+    Slab1 -->|Yes| Calc1[Calculate: min(remaining, 50) × 1.5]
+    Calc1 --> Update1[Update: total += amount, remaining -= used]
+    Slab1 -->|No| Done
+    
+    Update1 --> Slab2{remaining > 0?}
+    Slab2 -->|Yes| Calc2[Calculate: min(remaining, 50) × 2.5]
+    Calc2 --> Update2[Update: total += amount, remaining -= used]
+    Slab2 -->|No| Done
+    
+    Update2 --> Slab3{remaining > 0?}
+    Slab3 -->|Yes| Calc3[Calculate: min(remaining, 50) × 3.5]
+    Calc3 --> Update3[Update: total += amount, remaining -= used]
+    Slab3 -->|No| Done
+    
+    Update3 --> Slab4{remaining > 0?}
+    Slab4 -->|Yes| Calc4[Calculate: remaining × 4.5]
+    Calc4 --> Update4[Update: total += amount]
+    Slab4 -->|No| Done
+    
+    MinCharge --> Done
+    Update4 --> Done
+    Done([Return: total_amount])
+```
+
+---
+
+### Component 6: Test Plan
+
+#### [NEW] [TEST_PLAN.md](file:///home/coderzz69/Desktop/SE_Projects/electricity_billing_app/docs/TEST_PLAN.md)
+
+**Structure**: Test cases for all functions
+
+**Test Case Template**:
+| Test ID | Functionality | Input | Expected Output | Actual Output | Status |
+|---------|---------------|-------|-----------------|---------------|--------|
+
+**Example Test Cases**:
+
+**1. Validation Tests**:
+- `VAL-001`: Valid name with alphabets only
+- `VAL-002`: Invalid name with numbers
+- `VAL-003`: Invalid name with special characters
+- `VAL-004`: Valid 10-digit phone number
+- `VAL-005`: Invalid phone with 9 digits
+- `VAL-006`: Invalid phone with 11 digits
+- `VAL-007`: Duplicate service number rejection
+- `VAL-008`: Unique service number acceptance
+
+**2. Tariff Calculation Tests**:
+- `TARIFF-001`: Zero units (expect ₹25 minimum charge)
+- `TARIFF-002`: 50 units (expect 50 × 1.5 = ₹75)
+- `TARIFF-003`: 100 units (expect 50×1.5 + 50×2.5 = ₹200)
+- `TARIFF-004`: 150 units (expect 50×1.5 + 50×2.5 + 50×3.5 = ₹375)
+- `TARIFF-005`: 200 units (expect 375 + 50×4.5 = ₹600)
+- `TARIFF-006`: Negative units (expect error)
+
+**3. Fine Calculation Tests**:
+- `FINE-001`: Payment before due date (no fine)
+- `FINE-002`: Payment after due date (₹150 fine added)
+
+**4. Previous Bills Tests**:
+- `PREV-001`: New customer (no previous dues)
+- `PREV-002`: Customer with unpaid bills (dues accumulated)
+
+**5. Integration Tests**:
+- `INT-001`: Complete bill generation flow
+- `INT-002`: Multiple bills for same customer
+- `INT-003`: Database persistence verification
+
+---
+
+#### [NEW] [test_validation.py](file:///home/coderzz69/Desktop/SE_Projects/electricity_billing_app/tests/test_validation.py)
+
+**Purpose**: Unit tests for validation module
+
+**Test functions**:
+```python
+def test_validate_consumer_name_valid()
+def test_validate_consumer_name_with_numbers()
+def test_validate_consumer_name_with_special_chars()
+def test_validate_phone_number_valid()
+def test_validate_phone_number_too_short()
+def test_validate_phone_number_too_long()
+def test_validate_phone_number_non_numeric()
+```
+
+---
+
+#### [NEW] [test_tariff.py](file:///home/coderzz69/Desktop/SE_Projects/electricity_billing_app/tests/test_tariff.py)
+
+**Purpose**: Unit tests for tariff calculation
+
+**Test functions**:
+```python
+def test_zero_units_minimum_charge()
+def test_first_slab_only()
+def test_multiple_slabs()
+def test_all_slabs()
+def test_negative_units()
+def test_detailed_breakdown()
+```
+
+---
+
+#### [NEW] [test_integration.py](file:///home/coderzz69/Desktop/SE_Projects/electricity_billing_app/tests/test_integration.py)
+
+**Purpose**: Integration tests for complete workflows
+
+**Test functions**:
+```python
+def test_complete_bill_generation()
+def test_duplicate_service_number_rejected()
+def test_previous_bills_accumulation()
+def test_fine_calculation_after_due_date()
+```
+
+---
+
+### Component 7: Bug Fixes & Enhancements
+
+#### [MODIFY] [bill_service.py](file:///home/coderzz69/Desktop/SE_Projects/electricity_billing_app/services/bill_service.py)
+
+**Bug Fixes**:
+1. **Fix due date calculation**: Currently hardcoded to `datetime.now()`, should be `datetime.now() + timedelta(days=15)`
+2. **Fix previous dues**: Currently hardcoded to 0, should query unpaid bills
+3. **Add minimum charge**: Not implemented for 0 units
+
+---
+
+#### [MODIFY] [app.py](file:///home/coderzz69/Desktop/SE_Projects/electricity_billing_app/app.py)
+
+**Bug Fixes**:
+1. **Add input validation**: Currently accepts invalid data
+2. **Fix duplicate checking**: Should also check service_number, not just house_number
+3. **Add error handling**: Better user feedback for validation errors
+
+---
+
+#### [MODIFY] [index.html](file:///home/coderzz69/Desktop/SE_Projects/electricity_billing_app/templates/index.html)
+
+**Enhancements**:
+1. Add phone number input field
+2. Add service number input field (with auto-generate option)
+3. Add client-side validation for better UX
+4. Display validation errors inline
+
+---
+
+#### [NEW] [api_routes.py](file:///home/coderzz69/Desktop/SE_Projects/electricity_billing_app/routes/api_routes.py)
+
+**Purpose**: API endpoints for interoperability
+
+**Endpoints to create**:
+```python
+GET  /api/bills/<service_number>      # Get bills by service number
+POST /api/bills                        # Create new bill
+GET  /api/consumers/<service_number>  # Get consumer details
+POST /api/consumers                    # Register new consumer
+```
+
+This enables external applications to interact with the billing system.
+
+---
+
+## Verification Plan
+
+### Automated Tests
+
+#### 1. Unit Tests - Validation Module
+**Command to run**:
+```bash
+cd /home/coderzz69/Desktop/SE_Projects/electricity_billing_app
+python -m pytest tests/test_validation.py -v
+```
+
+**Expected**: All validation test cases pass (VAL-001 through VAL-008)
+
+---
+
+#### 2. Unit Tests - Tariff Calculation
+**Command to run**:
+```bash
+python -m pytest tests/test_tariff.py -v
+```
+
+**Expected**: All tariff test cases pass (TARIFF-001 through TARIFF-006)
+- `test_zero_units_minimum_charge`: Verify ₹25 charge for 0 units
+- `test_first_slab_only`: Verify 40 units = 40 × 1.5 = ₹60
+- `test_multiple_slabs`: Verify 75 units = 50×1.5 + 25×2.5 = ₹137.50
+- `test_all_slabs`: Verify 175 units = 50×1.5 + 50×2.5 + 50×3.5 + 25×4.5 = ₹487.50
+
+---
+
+#### 3. Integration Tests
+**Command to run**:
+```bash
+python -m pytest tests/test_integration.py -v
+```
+
+**Expected**: All integration tests pass
+- Database operations succeed
+- Previous bills accumulate correctly
+- Fine calculation works when checking after due date
+
+---
+
+### Manual Verification
+
+#### 1. Test Input Validation via Web UI
+
+**Steps**:
+1. Start the application: `python app.py`
+2. Navigate to `http://localhost:5000`
+3. Log in as admin (username: admin, password: admin123)
+4. Try to add household with invalid name "John123"
+   - **Expected**: Error message "Name must contain only letters"
+5. Try valid name "John Doe"
+   - **Expected**: Accepted
+6. Try phone "12345" (5 digits)
+   - **Expected**: Error "Phone number must be exactly 10 digits"
+7. Try phone "1234567890"
+   - **Expected**: Accepted
+
+---
+
+#### 2. Test Bill Calculation
+
+**Steps**:
+1. Create a household with valid details
+2. Generate bill for **0 units**
+   - **Expected**: Total amount = ₹25 (minimum charge)
+3. Generate bill for **50 units**
+   - **Expected**: Base amount = ₹75 (50 × 1.5)
+4. Generate bill for **150 units**
+   - **Expected**: Base amount = ₹375 (50×1.5 + 50×2.5 + 50×3.5)
+5. Generate bill for **200 units**
+   - **Expected**: Base amount = ₹600 (50×1.5 + 50×2.5 + 50×3.5 + 50×4.5)
+
+---
+
+#### 3. Test Fine Calculation
+
+**Steps**:
+1. Generate a bill (note the due date)
+2. Manually check if today's date is after due date
+3. View the invoice
+   - **Expected**: If before due date: fine = ₹0
+   - **Expected**: If after due date: fine = ₹150
+
+---
+
+#### 4. Test Previous Bills Accumulation
+
+**Steps**:
+1. Create household and generate first bill for 100 units (₹200)
+2. Don't mark it as paid
+3. Generate second bill for 50 units (₹75)
+   - **Expected**: Previous dues field shows ₹200
+   - **Expected**: Total amount = ₹75 + ₹200 = ₹275
+
+---
+
+#### 5. Test Documentation Completeness
+
+**Steps**:
+1. Open `docs/MODULE_SPECIFICATIONS.md`
+2. Verify each function has:
+   - ✓ Module name
+   - ✓ Input parameters
+   - ✓ Preconditions
+   - ✓ Logic description
+   - ✓ Output specification
+3. Open `docs/ALGORITHM_FLOWCHARTS.md`
+4. Verify flowcharts render correctly (view in VS Code with Markdown Preview)
+
+---
+
+#### 6. Test Plan Document Review
+
+**Steps**:
+1. Open `docs/TEST_PLAN.md`
+2. Verify test case table includes:
+   - ✓ Test ID
+   - ✓ Functionality description
+   - ✓ Input test data
+   - ✓ Expected output
+   - ✓ Actual output column (to be filled)
+   - ✓ Test report/status column
+
+---
+
+### Performance & Quality Verification
+
+#### Usability Testing
+- [ ] User can easily understand error messages
+- [ ] Forms have clear labels and placeholders
+- [ ] Bill display is readable and well-formatted
+
+#### Efficiency Testing
+- [ ] Database queries use indexes on service_number
+- [ ] No N+1 query problems
+- [ ] Memory usage reasonable for expected scale
+
+#### Reusability Testing
+- [ ] Validation functions work independently
+- [ ] Tariff calculation can be imported and used elsewhere
+- [ ] Modules have minimal dependencies
+
+#### Interoperability Testing
+- [ ] API endpoints accessible via curl/Postman
+- [ ] JSON responses follow standard format
+- [ ] CORS enabled if needed for external access
+
+---
+
+## Implementation Order
+
+1. **Phase 1**: Create new modules directory and constants
+2. **Phase 2**: Implement validation module with tests
+3. **Phase 3**: Update tariff service with new rates and tests
+4. **Phase 4**: Modify bill service to use new modules
+5. **Phase 5**: Update database schema and Flask routes
+6. **Phase 6**: Create documentation files
+7. **Phase 7**: Develop test plan and test files
+8. **Phase 8**: Implement API routes for interoperability
+9. **Phase 9**: Run all tests and fix issues
+10. **Phase 10**: Final review and user acceptance testing
+
+---
+
+## Notes
+
+- All test files use `pytest` framework
+- Documentation uses Mermaid for flowcharts (renders in GitHub/VS Code)
+- API follows REST conventions for interoperability
+- Backward compatibility maintained where possible
+- Existing data migration script may be needed
